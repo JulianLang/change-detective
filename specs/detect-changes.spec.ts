@@ -142,14 +142,14 @@ describe('detectChanges', () => {
       {
         current: 24,
         previous: 12,
-        type: 'setValue',
+        type: 'changed',
       },
     ]);
     expect(_value[ChangeDetective].changes.get('b')).toEqual([
       {
         current: false,
         previous: true,
-        type: 'setValue',
+        type: 'changed',
       },
     ]);
   });
@@ -168,12 +168,12 @@ describe('detectChanges', () => {
       {
         previous: 12,
         current: 24,
-        type: 'setValue',
+        type: 'changed',
       },
       {
         previous: 24,
         current: 42,
-        type: 'setValue',
+        type: 'changed',
       },
     ]);
   });

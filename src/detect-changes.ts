@@ -1,13 +1,32 @@
+import { arrayDetectors, unequalDetector } from './detectors';
 import {
   ChangeDetectable,
   ChangeDetectableContent,
   ChangeDetective,
+  ChangeDetectors,
   Func,
   Member,
   Nullable,
+  PropertyChange,
   PropertyChanges,
   SubscribeCallback,
 } from './types';
+
+const builtInDetectors: ChangeDetectors = {
+  unequalDetector,
+  ...arrayDetectors,
+};
+let changeDetectors: ChangeDetectors = {
+  ...builtInDetectors,
+};
+
+export function addCustomDetectors(detectors: ChangeDetectors): void {
+  changeDetectors = {
+    ...builtInDetectors,
+    ...changeDetectors,
+    ...detectors,
+  };
+}
 
 export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
   const proxy: T = installChangeDetection();
@@ -18,14 +37,30 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
 
   function installChangeDetection(): T {
     return new Proxy(value, {
+      deleteProperty(target, property) {
+        runChangeDetection(undefined, target[property], property, target);
+
+        return Reflect.deleteProperty(target, property);
+      },
+      defineProperty(target, property, attr) {
+        runChangeDetection(attr.value, undefined, property, target);
+
+        return Reflect.defineProperty(target, property, attr);
+      },
       get(target, property, receiver) {
         return getProperty(target, property, receiver);
       },
-
       set(target, property, value, receiver) {
         return setProperty(target, property, value, receiver);
       },
+      apply(target, thisArg, args: any[]) {
+        return applyFn(target, thisArg, args);
+      },
     });
+  }
+
+  function applyFn(target: any, thisArg: any, args: any[]) {
+    return Reflect.apply(target, thisArg, args);
   }
 
   function getProperty(target: any, property: PropertyKey, receiver: any): any {
@@ -51,27 +86,33 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
         const previous = Reflect.get(target, property, receiver);
         const success = Reflect.set(target, property, value, receiver);
 
-        if (success && previous !== value) {
-          addChange(property, value, previous);
+        if (success) {
+          runChangeDetection(value, previous, property, target);
         }
 
         return success;
     }
   }
 
-  function addChange(property: PropertyKey, currentValue: any, previous: any): void {
-    add(
-      {
-        current: currentValue,
-        previous: previous,
-        // TODO: langju: change in future to be set correctly
-        type: 'setValue',
-      },
-      changes,
-      property,
-    );
+  function runChangeDetection(
+    current: any,
+    previous: any,
+    property: PropertyKey,
+    target: any,
+  ): void {
+    for (const key in changeDetectors) {
+      const detect = changeDetectors[key];
+      const change = detect(current, previous, property, target);
 
-    notifySubscribers(property, currentValue, previous);
+      if (change !== null) {
+        addChange(change, property);
+      }
+    }
+  }
+
+  function addChange(change: PropertyChange<Member<T>>, property: PropertyKey): void {
+    add(change, changes, property);
+    notifySubscribers(property, change);
   }
 
   function hasChanges(): boolean {
@@ -87,12 +128,12 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
     return () => removeSubscriber(subscriber, property);
   }
 
-  function notifySubscribers(property: Nullable<PropertyKey>, currentValue: any, previous: any) {
+  function notifySubscribers(property: Nullable<PropertyKey>, change: PropertyChange<Member<T>>) {
     const propertySubscribers = getContents(subscribers, property);
     const allSubscribers = getContents(subscribers, null);
 
     for (const subscriber of [...propertySubscribers, ...allSubscribers]) {
-      subscriber(property, currentValue, previous);
+      subscriber(property, change.current, change.previous);
     }
   }
 

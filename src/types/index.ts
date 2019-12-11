@@ -1,4 +1,6 @@
 export * from './change-detectable';
+export * from './change.detector';
+export * from './change.detectors';
 export * from './change.type';
 export * from './func';
 export * from './member';

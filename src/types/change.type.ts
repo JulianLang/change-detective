@@ -1,1 +1,1 @@
-export type ChangeType = 'setValue' | 'addValue';
+export type ChangeType = 'added' | 'removed' | 'changed';
