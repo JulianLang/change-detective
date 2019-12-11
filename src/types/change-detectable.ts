@@ -1,4 +1,5 @@
 import { Func } from './func';
+import { Nullable } from './nullable';
 import { PropertyChange } from './property.change';
 import { SubscribeCallback } from './subscribe-callback';
 
@@ -9,7 +10,7 @@ export interface ChangeDetectable<T = any> {
    * @param handler Function to be called whenever a value changed
    * @returns Function to unsubscribe from changes.
    */
-  _subscribe(handler: SubscribeCallback<T>): Func<[], void>;
+  _subscribe(handler: SubscribeCallback<T>, property?: Nullable<keyof T>): Func<[], void>;
   _changes: Map<keyof T, PropertyChange<T>>;
   _hasChanges(): boolean;
 }

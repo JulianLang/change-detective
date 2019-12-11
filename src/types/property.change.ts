@@ -1,7 +1,7 @@
 import { ChangeType } from './change.type';
 
 export interface PropertyChange<T> {
-  oldValue: T;
-  currentValue: T;
+  previous: T;
+  current: T;
   type: ChangeType;
 }

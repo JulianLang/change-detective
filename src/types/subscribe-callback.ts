@@ -1,4 +1,4 @@
 /** Callback function to be called whenever a change occurs. */
 export interface SubscribeCallback<T> {
-  (currentValue: T, oldValue: T): void;
+  (property: PropertyKey, current: T[keyof T], previous: T[keyof T]): void;
 }
