@@ -52,14 +52,14 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
         const success = Reflect.set(target, property, value, receiver);
 
         if (success && previous !== value) {
-          updateChange(property, value, previous);
+          addChange(property, value, previous);
         }
 
         return success;
     }
   }
 
-  function updateChange(property: PropertyKey, currentValue: any, previous: any): void {
+  function addChange(property: PropertyKey, currentValue: any, previous: any): void {
     add(
       {
         current: currentValue,
