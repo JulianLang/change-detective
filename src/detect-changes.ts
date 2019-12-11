@@ -51,7 +51,7 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
         const previous = Reflect.get(target, property, receiver);
         const success = Reflect.set(target, property, value, receiver);
 
-        if (success) {
+        if (success && previous !== value) {
           updateChange(property, value, previous);
         }
 
