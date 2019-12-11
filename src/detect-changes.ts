@@ -4,6 +4,7 @@ import {
   ChangeDetectableContent,
   ChangeDetective,
   ChangeDetectors,
+  ChangeType,
   Func,
   Member,
   Nullable,
@@ -38,12 +39,12 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
   function installChangeDetection(): T {
     return new Proxy(value, {
       deleteProperty(target, property) {
-        runChangeDetection(undefined, target[property], property, target);
+        runChangeDetection(undefined, target[property], property, target, 'removed');
 
         return Reflect.deleteProperty(target, property);
       },
       defineProperty(target, property, attr) {
-        runChangeDetection(attr.value, undefined, property, target);
+        runChangeDetection(attr.value, undefined, property, target, 'added');
 
         return Reflect.defineProperty(target, property, attr);
       },
@@ -87,7 +88,7 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
         const success = Reflect.set(target, property, value, receiver);
 
         if (success) {
-          runChangeDetection(value, previous, property, target);
+          runChangeDetection(value, previous, property, target, 'changed');
         }
 
         return success;
@@ -99,13 +100,20 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
     previous: any,
     property: PropertyKey,
     target: any,
+    type: ChangeType,
   ): void {
     for (const key in changeDetectors) {
       const detect = changeDetectors[key];
-      const change = detect(current, previous, property, target);
 
-      if (change !== null) {
-        addChange(change, property);
+      if (detect(current, previous, property, target)) {
+        addChange(
+          {
+            current,
+            previous,
+            type,
+          },
+          property,
+        );
       }
     }
   }
