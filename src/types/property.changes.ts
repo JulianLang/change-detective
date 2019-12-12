@@ -1,3 +1,3 @@
 import { PropertyChange } from './property.change';
 
-export type PropertyChanges<T> = PropertyChange<T>[];
+export type PropertyChanges<T = any> = PropertyChange<T>[];

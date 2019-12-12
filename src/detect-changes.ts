@@ -22,9 +22,9 @@ let changeDetectors: ChangeDetectors = {
 
 export function addCustomDetectors(detectors: ChangeDetectors): void {
   changeDetectors = {
-    ...builtInDetectors,
     ...changeDetectors,
     ...detectors,
+    ...builtInDetectors,
   };
 }
 
@@ -32,6 +32,7 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
   const proxy: T = installChangeDetection();
   const changes: Map<keyof T, PropertyChanges<Member<T>>> = new Map();
   const subscribers: Map<Nullable<PropertyKey>, SubscribeCallback<T>[]> = new Map();
+  let lastRegisteredChange: PropertyChange;
 
   return proxy as T & ChangeDetectable;
 
@@ -53,14 +54,7 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
       set(target, property, value, receiver) {
         return setProperty(target, property, value, receiver);
       },
-      apply(target, thisArg, args: any[]) {
-        return applyFn(target, thisArg, args);
-      },
     });
-  }
-
-  function applyFn(target: any, thisArg: any, args: any[]) {
-    return Reflect.apply(target, thisArg, args);
   }
 
   function getProperty(target: any, property: PropertyKey, receiver: any): any {
@@ -101,12 +95,16 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
     target: any,
     type: ChangeType,
   ): void {
+    const detectedChanges: PropertyKey[] = [];
+
     for (const key in changeDetectors) {
       const detect = changeDetectors[key];
 
-      if (detect(current, previous, property, target)) {
+      if (detect(current, previous, property, target) && !detectedChanges.includes(property)) {
+        detectedChanges.push(property);
         addChange(
           {
+            property,
             current,
             previous,
             type,
@@ -118,8 +116,23 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
   }
 
   function addChange(change: PropertyChange<Member<T>>, property: PropertyKey): void {
-    add(change, changes, property);
-    notifySubscribers(property, change);
+    if (isDifferent(change, lastRegisteredChange)) {
+      lastRegisteredChange = change;
+      add(change, changes, property);
+      notifySubscribers(property, change);
+    }
+  }
+
+  function isDifferent(change: PropertyChange, other: PropertyChange): boolean {
+    if (change === undefined || other === undefined) {
+      return true;
+    }
+
+    return (
+      change.current !== other.current ||
+      change.previous !== other.previous ||
+      change.property !== other.property
+    );
   }
 
   function hasChanges(): boolean {
@@ -136,11 +149,11 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
   }
 
   function notifySubscribers(property: Nullable<PropertyKey>, change: PropertyChange<Member<T>>) {
-    const propertySubscribers = getContents(subscribers, property);
-    const allSubscribers = getContents(subscribers, null);
+    const propertySubscribers: SubscribeCallback[] = getContents(subscribers, property);
+    const allSubscribers: SubscribeCallback[] = getContents(subscribers, null);
 
     for (const subscriber of [...propertySubscribers, ...allSubscribers]) {
-      subscriber(property, change.current, change.previous);
+      subscriber(change);
     }
   }
 
