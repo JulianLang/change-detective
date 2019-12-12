@@ -1,3 +1,5 @@
 export function unequalDetector<T>(value: T, previous: T): boolean {
-  return Object.is(value, previous);
+  const isSame = Object.is(value, previous);
+
+  return !isSame;
 }
