@@ -1,4 +1,4 @@
-import { arrayDetectors, unequalDetector } from './detectors';
+import { unequalDetector } from './detectors';
 import {
   ChangeDetectable,
   ChangeDetectableContent,
@@ -15,7 +15,6 @@ import {
 
 const builtInDetectors: ChangeDetectors = {
   unequalDetector,
-  ...arrayDetectors,
 };
 let changeDetectors: ChangeDetectors = {
   ...builtInDetectors,
