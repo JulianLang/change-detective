@@ -1,7 +1,8 @@
 import { detectChanges } from './src/detect-changes';
 import { ChangeDetective } from './src/types';
 
-const _value = detectChanges([]);
+const numberArr: number[] = [];
+const _value = detectChanges(numberArr);
 
 const unsubscribe = _value[ChangeDetective].subscribe(change => {
   console.log(change);

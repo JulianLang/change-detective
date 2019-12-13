@@ -12,6 +12,7 @@ import {
   PropertyChanges,
   SubscribeCallback,
 } from './types';
+import { get } from './util';
 
 const builtInDetectors: ChangeDetectors = {
   unequalDetector,
@@ -39,7 +40,7 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
   function installChangeDetection(): T {
     return new Proxy(value, {
       deleteProperty(target, property) {
-        runChangeDetection(undefined, target[property], property, target, 'removed');
+        runChangeDetection(undefined, get(property, target), property, target, 'removed');
 
         return Reflect.deleteProperty(target, property);
       },
@@ -171,7 +172,7 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
     subscriber: SubscribeCallback<T>,
     property: Nullable<PropertyKey>,
   ): void {
-    const currentSubscribers = subscribers.get(property);
+    const currentSubscribers: SubscribeCallback[] = getContents(subscribers, property);
     const filteredSubscribers = currentSubscribers.filter(s => s !== subscriber);
 
     subscribers.set(property, filteredSubscribers);

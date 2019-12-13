@@ -1,5 +1,6 @@
 import { detectChanges } from '../src/detect-changes';
 import { ChangeDetective, SubscribeCallback } from '../src/types';
+import { get, set } from '../src/util';
 
 describe('detectChanges', () => {
   it('should proxy changes to original instance', () => {
@@ -21,10 +22,10 @@ describe('detectChanges', () => {
     const _value = detectChanges(value);
 
     // act
-    _value[TestSymbol] = 42;
+    set(TestSymbol, 42, _value);
 
     // assert
-    expect(value[TestSymbol]).toBe(42);
+    expect(get(TestSymbol, value)).toBe(42);
   });
 
   it('should not proxy ChangeDetective symbol to original instance', () => {
@@ -36,18 +37,18 @@ describe('detectChanges', () => {
 
     // assert
     expect(_value[ChangeDetective]).toBeDefined();
-    expect(value[ChangeDetective]).not.toBeDefined();
+    expect(get(ChangeDetective, value)).not.toBeDefined();
   });
 
   it('should notify correct values on all change', () => {
     // arrange
     const value = { a: 12 };
     const _value = detectChanges(value);
-    const unsubscribe = _value[ChangeDetective].subscribe((property, current, previous) => {
+    const unsubscribe = _value[ChangeDetective].subscribe(change => {
       // assert
-      expect(property).toBe('a');
-      expect(current).toBe(42);
-      expect(previous).toBe(12);
+      expect(change.property).toBe('a');
+      expect(change.current).toBe(42);
+      expect(change.previous).toBe(12);
       // clean up
       unsubscribe();
     });
@@ -60,11 +61,11 @@ describe('detectChanges', () => {
     // arrange
     const value = { a: 12 };
     const _value = detectChanges(value);
-    const assertCallback: SubscribeCallback<{ a: number }> = (property, current, previous) => {
+    const assertCallback: SubscribeCallback<{ a: number }> = change => {
       // assert
-      expect(property).toBe('a');
-      expect(current).toBe(42);
-      expect(previous).toBe(12);
+      expect(change.property).toBe('a');
+      expect(change.current).toBe(42);
+      expect(change.previous).toBe(12);
       // clean up
       unsubscribe();
     };
@@ -140,6 +141,7 @@ describe('detectChanges', () => {
     expect(_value[ChangeDetective].changes.size).toBe(2);
     expect(_value[ChangeDetective].changes.get('a')).toEqual([
       {
+        property: 'a',
         current: 24,
         previous: 12,
         type: 'changed',
@@ -147,6 +149,7 @@ describe('detectChanges', () => {
     ]);
     expect(_value[ChangeDetective].changes.get('b')).toEqual([
       {
+        property: 'b',
         current: false,
         previous: true,
         type: 'changed',
@@ -166,11 +169,13 @@ describe('detectChanges', () => {
     // assert
     expect(_value[ChangeDetective].changes.get('a')).toEqual([
       {
+        property: 'a',
         previous: 12,
         current: 24,
         type: 'changed',
       },
       {
+        property: 'a',
         previous: 24,
         current: 42,
         type: 'changed',
