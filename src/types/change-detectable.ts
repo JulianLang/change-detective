@@ -1,7 +1,7 @@
-import { Func } from './func';
-import { Member } from './member';
-import { Nullable } from './nullable';
-import { PropertyChanges } from './property.changes';
+import { Func } from './internal/func';
+import { Member } from './internal/member';
+import { Nullable } from './internal/nullable';
+import { PropertyChanges } from './internal/property.changes';
 import { SubscribeCallback } from './subscribe-callback';
 
 export const ChangeDetective = Symbol('change-detective');
