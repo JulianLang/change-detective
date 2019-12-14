@@ -18,6 +18,8 @@ import { add, toPropertyPath } from './util';
 
 const defaultOpts: DetectOptions = {
   detectPropertyRemoving: true,
+  strictComparison: true,
+  deepDetection: true,
 };
 
 let changeInterceptor: Interceptor = () => null;
