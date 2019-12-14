@@ -133,6 +133,55 @@ describe('detectChanges', () => {
     expect(_value[ChangeDetective].hasChanges()).toBeFalse();
   });
 
+  fit('should track nested changes', () => {
+    // arrange
+    const host = {
+      value: {
+        a: 42,
+        c: {
+          d: true,
+        },
+      },
+    };
+    const _host = detectChanges(host);
+
+    // act
+    _host.value.a = 24;
+    _host.value.c.d = false;
+
+    // assert
+    expect(_host[ChangeDetective].changes('value.a')).toEqual([
+      {
+        current: 24,
+        previous: 42,
+        property: 'value.a',
+        type: 'changed',
+      },
+    ]);
+    expect(_host[ChangeDetective].changes('value.c.d')).toEqual([
+      {
+        current: 24,
+        previous: 42,
+        property: 'value.a',
+        type: 'changed',
+      },
+    ]);
+    expect(_host[ChangeDetective].changes()).toEqual([
+      {
+        current: 24,
+        previous: 42,
+        property: 'value.a',
+        type: 'changed',
+      },
+      {
+        current: 24,
+        previous: 42,
+        property: 'value.a',
+        type: 'changed',
+      },
+    ]);
+  });
+
   it('should track changes if there are some', () => {
     // arrange
     const value = { a: 12, b: true };
