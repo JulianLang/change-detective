@@ -1,24 +1,38 @@
 import { unequalDetector } from './detectors';
+import { initialPropertyAddedInterceptor } from './interceptors';
 import {
   ChangeDetectable,
   ChangeDetectableContent,
   ChangeDetective,
+  ChangeDetector,
   ChangeDetectors,
   ChangeType,
+  DetectOptions,
   Func,
+  Interceptors,
   Member,
   Nullable,
   PropertyChange,
   PropertyChanges,
   SubscribeCallback,
 } from './types';
-import { get } from './util';
+import { get, runEach } from './util';
 
+const defaultOpts: DetectOptions = {
+  includePropertyAdded: false,
+  includePropertyRemoved: false,
+};
+const builtInInterceptors: Interceptors = {
+  initialPropertyAddedInterceptor,
+};
 const builtInDetectors: ChangeDetectors = {
   unequalDetector,
 };
 let changeDetectors: ChangeDetectors = {
   ...builtInDetectors,
+};
+let changeInterceptors: Interceptors = {
+  ...builtInInterceptors,
 };
 
 export function addCustomDetectors(detectors: ChangeDetectors): void {
@@ -29,7 +43,31 @@ export function addCustomDetectors(detectors: ChangeDetectors): void {
   };
 }
 
-export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
+export function addCustomInterceptors(interceptors: Interceptors): void {
+  changeInterceptors = {
+    ...builtInInterceptors,
+    ...changeInterceptors,
+    ...interceptors,
+  };
+}
+
+export function resetCustomInterceptors() {
+  changeInterceptors = {
+    ...builtInInterceptors,
+  };
+}
+
+export function resetCustomDetectors() {
+  changeDetectors = {
+    ...builtInDetectors,
+  };
+}
+
+export function detectChanges<T extends {}>(
+  value: T,
+  opts: DetectOptions = defaultOpts,
+): T & ChangeDetectable {
+  const options = { ...defaultOpts, ...opts };
   const proxy: T = installChangeDetection();
   const changes: Map<keyof T, PropertyChanges<Member<T>>> = new Map();
   const subscribers: Map<Nullable<PropertyKey>, SubscribeCallback<T>[]> = new Map();
@@ -40,12 +78,16 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
   function installChangeDetection(): T {
     return new Proxy(value, {
       deleteProperty(target, property) {
-        runChangeDetection(undefined, get(property, target), property, target, 'removed');
+        if (options.includePropertyRemoved) {
+          runChangeDetection(undefined, get(property, target), property, target, 'removed');
+        }
 
         return Reflect.deleteProperty(target, property);
       },
       defineProperty(target, property, attr) {
-        runChangeDetection(attr.value, undefined, property, target, 'added');
+        if (options.includePropertyAdded) {
+          runChangeDetection(attr.value, undefined, property, target, 'added');
+        }
 
         return Reflect.defineProperty(target, property, attr);
       },
@@ -98,22 +140,74 @@ export function detectChanges<T extends {}>(value: T): T & ChangeDetectable {
   ): void {
     const detectedChanges: PropertyKey[] = [];
 
-    for (const key in changeDetectors) {
-      const detect = changeDetectors[key];
-
-      if (detect(current, previous, property, target) && !detectedChanges.includes(property)) {
-        detectedChanges.push(property);
-        addChange(
-          {
-            property,
-            current,
-            previous,
-            type,
-          },
-          property,
-        );
-      }
+    if (shouldInterceptChange(current, previous, property, target, type)) {
+      return;
     }
+
+    detectChange(current, previous, property, target, type, detectedChanges);
+  }
+
+  function detectChange(
+    current: any,
+    previous: any,
+    property: PropertyKey,
+    target: any,
+    type: ChangeType,
+    detectedChanges: PropertyKey[],
+  ) {
+    runEach(changeDetectors, detector => {
+      const change = runDetector(detector, current, previous, property, target, type);
+
+      if (change && !detectedChanges.includes(property)) {
+        detectedChanges.push(property);
+        addChange(change, property);
+      }
+    });
+  }
+
+  function shouldInterceptChange(
+    current: any,
+    previous: any,
+    property: PropertyKey,
+    target: any,
+    type: ChangeType,
+  ) {
+    let isChangeIntercepted = false;
+
+    runEach(changeInterceptors, interceptor => {
+      const result = interceptor(current, previous, property, target, type);
+
+      switch (result) {
+        case 'is-change':
+          isChangeIntercepted = false;
+          break;
+        case 'no-change':
+          isChangeIntercepted = true;
+          break;
+      }
+    });
+
+    return isChangeIntercepted;
+  }
+
+  function runDetector(
+    detect: ChangeDetector,
+    current: any,
+    previous: any,
+    property: PropertyKey,
+    target: any,
+    type: ChangeType,
+  ): Nullable<PropertyChange> {
+    if (detect(current, previous, property, target, type)) {
+      return {
+        property,
+        current,
+        previous,
+        type,
+      };
+    }
+
+    return null;
   }
 
   function addChange(change: PropertyChange<Member<T>>, property: PropertyKey): void {

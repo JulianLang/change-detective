@@ -1,5 +1,11 @@
-import { detectChanges } from '../src/detect-changes';
-import { ChangeDetective, SubscribeCallback } from '../src/types';
+import {
+  addCustomDetectors,
+  addCustomInterceptors,
+  detectChanges,
+  resetCustomDetectors,
+  resetCustomInterceptors,
+} from '../src/detect-changes';
+import { ChangeDetective, DetectOptions, SubscribeCallback } from '../src/types';
 import { get, set } from '../src/util';
 
 describe('detectChanges', () => {
@@ -181,5 +187,107 @@ describe('detectChanges', () => {
         type: 'changed',
       },
     ]);
+  });
+
+  it('should respect includePropertyAdded option', () => {
+    // arrange
+    const opts: DetectOptions = { includePropertyAdded: true };
+    const obj = { a: 12 };
+
+    // act
+    const _obj = detectChanges(obj, opts);
+    (_obj as any).b = true;
+
+    // assert
+    expect(_obj[ChangeDetective].changes.size).toBe(1);
+    expect(_obj[ChangeDetective].changes.get('b')).toEqual([
+      {
+        current: true,
+        previous: undefined,
+        property: 'b',
+        type: 'added',
+      },
+    ]);
+  });
+
+  it('should not announce initial added changes', () => {
+    // arrange
+    const opts: DetectOptions = { includePropertyAdded: true };
+    const obj = { a: 12 };
+
+    // act
+    const _obj = detectChanges(obj, opts);
+    _obj.a = 21;
+
+    // assert
+    expect(_obj[ChangeDetective].changes.size).toBe(1);
+    expect(_obj[ChangeDetective].changes.get('a')).toEqual([
+      {
+        current: 21,
+        previous: 12,
+        property: 'a',
+        type: 'changed',
+      },
+    ]);
+  });
+
+  it('should call custom interceptors', () => {
+    // arrange
+    const fakeInterceptor = jasmine.createSpy();
+    addCustomInterceptors({ fakeInterceptor });
+    const _value: number[] = detectChanges([]);
+
+    // act
+    _value.push(12);
+
+    // assert
+    expect(fakeInterceptor).toHaveBeenCalled();
+
+    // clean up
+    resetCustomInterceptors();
+  });
+
+  it('should resetCustomInterceptors', () => {
+    // arrange
+    const fakeInterceptor = jasmine.createSpy();
+    addCustomInterceptors({ fakeInterceptor });
+    const _value: number[] = detectChanges([]);
+
+    // act
+    resetCustomInterceptors();
+    _value.push(12);
+
+    // assert
+    expect(fakeInterceptor).not.toHaveBeenCalled();
+  });
+
+  it('should call custom detectors', () => {
+    // arrange
+    const fakeDetector = jasmine.createSpy();
+    addCustomDetectors({ fakeDetector });
+    const _value: number[] = detectChanges([]);
+
+    // act
+    _value.push(12);
+
+    // assert
+    expect(fakeDetector).toHaveBeenCalled();
+
+    // clean up
+    resetCustomDetectors();
+  });
+
+  it('should resetCustomDetectors', () => {
+    // arrange
+    const fakeDetector = jasmine.createSpy();
+    addCustomDetectors({ fakeDetector });
+    const _value: number[] = detectChanges([]);
+
+    // act
+    resetCustomDetectors();
+    _value.push(12);
+
+    // assert
+    expect(fakeDetector).not.toHaveBeenCalled();
   });
 });
