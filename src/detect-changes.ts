@@ -18,8 +18,7 @@ import {
 import { add, runEach, toPropertyPath } from './util';
 
 const defaultOpts: DetectOptions = {
-  detectPropertyAdding: false,
-  detectPropertyRemoving: false,
+  detectPropertyRemoving: true,
 };
 const builtInInterceptors: Interceptors = {
   // none needed yet

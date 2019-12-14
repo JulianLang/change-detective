@@ -259,13 +259,12 @@ describe('detectChanges', () => {
     ]);
   });
 
-  it('should respect detectPropertyAdding option', () => {
+  it('should detect added properties', () => {
     // arrange
-    const opts: DetectOptions = { detectPropertyAdding: true };
     const obj = { a: 12 };
 
     // act
-    const _obj = detectChanges(obj, opts);
+    const _obj = detectChanges(obj);
     (_obj as any).b = true;
 
     // assert
@@ -279,13 +278,12 @@ describe('detectChanges', () => {
     ]);
   });
 
-  it('should not announce initial added changes', () => {
+  it('should not state initial added changes', () => {
     // arrange
-    const opts: DetectOptions = { detectPropertyAdding: true };
     const obj = { a: 12 };
 
     // act
-    const _obj = detectChanges(obj, opts);
+    const _obj = detectChanges(obj);
     _obj.a = 21;
 
     // assert
