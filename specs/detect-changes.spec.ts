@@ -189,7 +189,7 @@ describe('detectChanges', () => {
     ]);
   });
 
-  it('should respect includePropertyAdded option', () => {
+  it('should respect detectPropertyAdding option', () => {
     // arrange
     const opts: DetectOptions = { detectPropertyAdding: true };
     const obj = { a: 12 };
@@ -227,6 +227,27 @@ describe('detectChanges', () => {
         previous: 12,
         property: 'a',
         type: 'changed',
+      },
+    ]);
+  });
+
+  it('should respect detectPropertyRemoving option', () => {
+    // arrange
+    const opts: DetectOptions = { detectPropertyRemoving: true };
+    const obj = { a: 12 };
+
+    // act
+    const _obj = detectChanges(obj, opts);
+    delete _obj.a;
+
+    // assert
+    expect(_obj[ChangeDetective].changes.size).toBe(1);
+    expect(_obj[ChangeDetective].changes.get('a')).toEqual([
+      {
+        current: undefined,
+        previous: 12,
+        property: 'a',
+        type: 'removed',
       },
     ]);
   });
