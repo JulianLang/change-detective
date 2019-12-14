@@ -1,6 +1,5 @@
 import { AllChanges } from './constants';
 import { unequalDetector } from './detectors';
-import { initialPropertyAddedInterceptor } from './interceptors';
 import { installChangeDetection, notifySubscribers, subscribe } from './modules';
 import {
   AllChangesType,
@@ -8,7 +7,6 @@ import {
   ChangeDetectableFarcade,
   ChangeDetector,
   ChangeDetectors,
-  ChangeType,
   DetectOptions,
   Interceptors,
   Member,
@@ -17,14 +15,14 @@ import {
   PropertyChanges,
   SubscribeCallback,
 } from './types';
-import { add, runEach } from './util';
+import { add, runEach, toPropertyPath } from './util';
 
 const defaultOpts: DetectOptions = {
   detectPropertyAdding: false,
   detectPropertyRemoving: false,
 };
 const builtInInterceptors: Interceptors = {
-  initialPropertyAddedInterceptor,
+  // none needed yet
 };
 const builtInDetectors: ChangeDetectors = {
   unequalDetector,
@@ -67,6 +65,7 @@ export function resetCustomDetectors() {
 export function detectChanges<T extends {}>(
   value: T,
   opts: DetectOptions = defaultOpts,
+  baseVarPath = '',
 ): T & ChangeDetectable {
   const subscribers: Map<PropertyKey | AllChangesType, SubscribeCallback<T>[]> = new Map();
   const ChangeDetectiveFarcade: ChangeDetectableFarcade<T> = {
@@ -82,6 +81,7 @@ export function detectChanges<T extends {}>(
     options,
     runChangeDetection,
     ChangeDetectiveFarcade,
+    baseVarPath,
   );
 
   let changesMap: Map<keyof T | AllChangesType, PropertyChanges<Member<T>>> = new Map();
@@ -94,15 +94,15 @@ export function detectChanges<T extends {}>(
     previous: any,
     property: PropertyKey,
     target: any,
-    type: ChangeType,
+    currentVarPath: string,
   ): void {
     const detectedChanges: PropertyKey[] = [];
 
-    if (shouldInterceptChange(current, previous, property, target, type)) {
+    if (shouldInterceptChange(current, previous, property, target)) {
       return;
     }
 
-    detectChange(current, previous, property, target, type, detectedChanges);
+    detectChange(current, previous, property, target, detectedChanges, currentVarPath);
   }
 
   function detectChange(
@@ -110,30 +110,26 @@ export function detectChanges<T extends {}>(
     previous: any,
     property: PropertyKey,
     target: any,
-    type: ChangeType,
     detectedChanges: PropertyKey[],
+    currentVarPath: string,
   ) {
-    runEach(changeDetectors, detector => {
-      const change = runDetector(detector, current, previous, property, target, type);
+    const propertyPath = toPropertyPath(currentVarPath, property);
 
-      if (change && !detectedChanges.includes(property)) {
-        detectedChanges.push(property);
-        addChange(change, property);
+    runEach(changeDetectors, detector => {
+      const change = runDetector(detector, current, previous, propertyPath, target);
+
+      if (change && !detectedChanges.includes(propertyPath)) {
+        detectedChanges.push(propertyPath);
+        addChange(change, property, propertyPath);
       }
     });
   }
 
-  function shouldInterceptChange(
-    current: any,
-    previous: any,
-    property: PropertyKey,
-    target: any,
-    type: ChangeType,
-  ) {
+  function shouldInterceptChange(current: any, previous: any, property: PropertyKey, target: any) {
     let isChangeIntercepted = false;
 
     runEach(changeInterceptors, interceptor => {
-      const result = interceptor(current, previous, property, target, type);
+      const result = interceptor(current, previous, property, target);
 
       switch (result) {
         case 'is-change':
@@ -152,16 +148,14 @@ export function detectChanges<T extends {}>(
     detect: ChangeDetector,
     current: any,
     previous: any,
-    property: PropertyKey,
+    propertyPath: string,
     target: any,
-    type: ChangeType,
   ): Nullable<PropertyChange> {
-    if (detect(current, previous, property, target, type)) {
+    if (detect(current, previous, propertyPath, target)) {
       return {
-        property,
+        property: propertyPath,
         current,
         previous,
-        type,
       };
     }
 
@@ -184,10 +178,10 @@ export function detectChanges<T extends {}>(
     return changesMap.get(property) || [];
   }
 
-  function addChange(change: PropertyChange<T>, property: PropertyKey): void {
+  function addChange(change: PropertyChange<T>, property: PropertyKey, fullVarPath: string): void {
     if (isDifferent(change, lastRegisteredChange)) {
       lastRegisteredChange = change;
-      add(change, changesMap, property);
+      add(change, changesMap, fullVarPath);
       add(change, changesMap, AllChanges);
       notifySubscribers(property, change, subscribers);
     }

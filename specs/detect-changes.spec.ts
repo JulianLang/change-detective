@@ -133,13 +133,16 @@ describe('detectChanges', () => {
     expect(_value[ChangeDetective].hasChanges()).toBeFalse();
   });
 
-  fit('should track nested changes', () => {
+  it('should track nested changes', () => {
     // arrange
     const host = {
       value: {
         a: 42,
         c: {
           d: true,
+          e: {
+            f: 'str',
+          },
         },
       },
     };
@@ -148,6 +151,8 @@ describe('detectChanges', () => {
     // act
     _host.value.a = 24;
     _host.value.c.d = false;
+    _host.value.c.e.f = 'nice';
+    (_host.value.c.e as any).r = 42;
 
     // assert
     expect(_host[ChangeDetective].changes('value.a')).toEqual([
@@ -155,15 +160,27 @@ describe('detectChanges', () => {
         current: 24,
         previous: 42,
         property: 'value.a',
-        type: 'changed',
       },
     ]);
     expect(_host[ChangeDetective].changes('value.c.d')).toEqual([
       {
-        current: 24,
-        previous: 42,
-        property: 'value.a',
-        type: 'changed',
+        current: false,
+        previous: true,
+        property: 'value.c.d',
+      },
+    ]);
+    expect(_host[ChangeDetective].changes('value.c.e.f')).toEqual([
+      {
+        current: 'nice',
+        previous: 'str',
+        property: 'value.c.e.f',
+      },
+    ]);
+    expect(_host[ChangeDetective].changes('value.c.e.r')).toEqual([
+      {
+        current: 42,
+        previous: undefined,
+        property: 'value.c.e.r',
       },
     ]);
     expect(_host[ChangeDetective].changes()).toEqual([
@@ -171,13 +188,21 @@ describe('detectChanges', () => {
         current: 24,
         previous: 42,
         property: 'value.a',
-        type: 'changed',
       },
       {
-        current: 24,
-        previous: 42,
-        property: 'value.a',
-        type: 'changed',
+        current: false,
+        previous: true,
+        property: 'value.c.d',
+      },
+      {
+        current: 'nice',
+        previous: 'str',
+        property: 'value.c.e.f',
+      },
+      {
+        current: 42,
+        previous: undefined,
+        property: 'value.c.e.r',
       },
     ]);
   });
@@ -199,7 +224,6 @@ describe('detectChanges', () => {
         property: 'a',
         current: 24,
         previous: 12,
-        type: 'changed',
       },
     ]);
     expect(_value[ChangeDetective].changes('b')).toEqual([
@@ -207,7 +231,6 @@ describe('detectChanges', () => {
         property: 'b',
         current: false,
         previous: true,
-        type: 'changed',
       },
     ]);
   });
@@ -227,13 +250,11 @@ describe('detectChanges', () => {
         property: 'a',
         previous: 12,
         current: 24,
-        type: 'changed',
       },
       {
         property: 'a',
         previous: 24,
         current: 42,
-        type: 'changed',
       },
     ]);
   });
@@ -254,7 +275,6 @@ describe('detectChanges', () => {
         current: true,
         previous: undefined,
         property: 'b',
-        type: 'added',
       },
     ]);
   });
@@ -275,7 +295,6 @@ describe('detectChanges', () => {
         current: 21,
         previous: 12,
         property: 'a',
-        type: 'changed',
       },
     ]);
   });
@@ -296,7 +315,6 @@ describe('detectChanges', () => {
         current: undefined,
         previous: 12,
         property: 'a',
-        type: 'removed',
       },
     ]);
   });
@@ -361,7 +379,7 @@ describe('detectChanges', () => {
     expect(fakeDetector).not.toHaveBeenCalled();
   });
 
-  it('resetChanges should empty changes map', () => {
+  it('.resetChanges() should empty changes map', () => {
     // arrange
     const _value = detectChanges([] as number[]);
     _value.push(1);

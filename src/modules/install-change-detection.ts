@@ -1,36 +1,23 @@
-import {
-  ChangeDetectableFarcade,
-  ChangeDetective,
-  ChangeType,
-  DetectOptions,
-  Func,
-  Member,
-} from '../types';
-import { get } from '../util';
+import { ChangeDetectableFarcade, ChangeDetective, DetectOptions, Func, Member } from '../types';
+import { get, toPropertyPath } from '../util';
 
 export function installChangeDetection<T extends {}>(
   original: T,
   options: DetectOptions,
   runChangeDetection: Func<
-    [Member<T> | undefined, Member<T> | undefined, PropertyKey, any, ChangeType],
+    [Member<T> | undefined, Member<T> | undefined, PropertyKey, any, string],
     void
   >,
   currentFarcade: ChangeDetectableFarcade<T>,
+  baseVarPath: string,
 ): T {
   return new Proxy(original, {
     deleteProperty(target, property) {
       if (options.detectPropertyRemoving) {
-        runChangeDetection(undefined, get(property, target), property, target, 'removed');
+        runChangeDetection(undefined, get(property, target), property, target, baseVarPath);
       }
 
       return Reflect.deleteProperty(target, property);
-    },
-    defineProperty(target, property, attr) {
-      if (options.detectPropertyAdding) {
-        runChangeDetection(attr.value, undefined, property, target, 'added');
-      }
-
-      return Reflect.defineProperty(target, property, attr);
     },
     get(target, property, receiver) {
       return getProperty(target, property, receiver);
@@ -45,7 +32,16 @@ export function installChangeDetection<T extends {}>(
       case ChangeDetective:
         return currentFarcade;
       default:
-        return Reflect.get(target, property, receiver);
+        const requested = Reflect.get(target, property, receiver);
+        return typeof requested === 'object'
+          ? installChangeDetection(
+              requested,
+              options,
+              runChangeDetection,
+              currentFarcade,
+              toPropertyPath(baseVarPath, property),
+            )
+          : requested;
     }
   }
 
@@ -58,7 +54,7 @@ export function installChangeDetection<T extends {}>(
         const success = Reflect.set(target, property, value, receiver);
 
         if (success) {
-          runChangeDetection(value, previous, property, target, 'changed');
+          runChangeDetection(value, previous, property, target, baseVarPath);
         }
 
         return success;
