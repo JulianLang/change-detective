@@ -7,8 +7,8 @@ import {
   ChangeDetectable,
   ChangeDetectableFarcade,
   ChangeDetector,
+  ChangeInterceptor,
   DetectOptions,
-  Interceptor,
   Member,
   PropertyChange,
   PropertyChanges,
@@ -22,14 +22,14 @@ const defaultOpts: DetectOptions = {
   deepDetection: true,
 };
 
-let changeInterceptor: Interceptor = () => null;
+let changeInterceptor: ChangeInterceptor = () => null;
 let changeDetector: ChangeDetector = unequalDetector;
 
 export function useCustomChangeDetector(detector: ChangeDetector): void {
   changeDetector = detector;
 }
 
-export function useCustomInterceptor(interceptor: Interceptor): void {
+export function useCustomInterceptor(interceptor: ChangeInterceptor): void {
   changeInterceptor = interceptor;
 }
 
