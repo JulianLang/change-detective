@@ -1,8 +1,7 @@
 import { AllChanges } from './constants';
 import { unequalDetector } from './detectors';
 import { initialPropertyAddedInterceptor } from './interceptors';
-import { installChangeDetection } from './modules';
-import { notifySubscribers, subscribe } from './modules/subscriptions';
+import { installChangeDetection, notifySubscribers, subscribe } from './modules';
 import {
   AllChangesType,
   ChangeDetectable,
