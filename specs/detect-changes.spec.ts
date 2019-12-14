@@ -191,7 +191,7 @@ describe('detectChanges', () => {
 
   it('should respect includePropertyAdded option', () => {
     // arrange
-    const opts: DetectOptions = { includePropertyAdded: true };
+    const opts: DetectOptions = { detectPropertyAdding: true };
     const obj = { a: 12 };
 
     // act
@@ -212,7 +212,7 @@ describe('detectChanges', () => {
 
   it('should not announce initial added changes', () => {
     // arrange
-    const opts: DetectOptions = { includePropertyAdded: true };
+    const opts: DetectOptions = { detectPropertyAdding: true };
     const obj = { a: 12 };
 
     // act

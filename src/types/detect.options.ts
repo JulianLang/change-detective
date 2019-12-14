@@ -1,4 +1,4 @@
 export interface DetectOptions {
-  includePropertyAdded?: boolean;
-  includePropertyRemoved?: boolean;
+  detectPropertyAdding?: boolean;
+  detectPropertyRemoving?: boolean;
 }

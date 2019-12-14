@@ -19,8 +19,8 @@ import {
 import { get, runEach } from './util';
 
 const defaultOpts: DetectOptions = {
-  includePropertyAdded: false,
-  includePropertyRemoved: false,
+  detectPropertyAdding: false,
+  detectPropertyRemoving: false,
 };
 const builtInInterceptors: Interceptors = {
   initialPropertyAddedInterceptor,
@@ -78,14 +78,14 @@ export function detectChanges<T extends {}>(
   function installChangeDetection(): T {
     return new Proxy(value, {
       deleteProperty(target, property) {
-        if (options.includePropertyRemoved) {
+        if (options.detectPropertyRemoving) {
           runChangeDetection(undefined, get(property, target), property, target, 'removed');
         }
 
         return Reflect.deleteProperty(target, property);
       },
       defineProperty(target, property, attr) {
-        if (options.includePropertyAdded) {
+        if (options.detectPropertyAdding) {
           runChangeDetection(attr.value, undefined, property, target, 'added');
         }
 
