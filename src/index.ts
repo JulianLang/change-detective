@@ -1,2 +1,2 @@
 export * from './detect-changes';
-export * from './types/public-api';
+export * from './types/_public-api';
