@@ -73,13 +73,11 @@ export function detectChanges<T extends {}>(
     target: any,
     currentVarPath: string,
   ): void {
-    const detectedChanges: PropertyKey[] = [];
-
     if (changeInterceptor(current, previous, property, target)) {
       return;
     }
 
-    detectChange(current, previous, property, target, detectedChanges, currentVarPath);
+    detectChange(current, previous, property, target, currentVarPath);
   }
 
   function detectChange(
@@ -87,7 +85,6 @@ export function detectChanges<T extends {}>(
     previous: any,
     property: PropertyKey,
     target: any,
-    detectedChanges: PropertyKey[],
     currentVarPath: string,
   ) {
     const propertyPath = toPropertyPath(currentVarPath, property);
