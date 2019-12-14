@@ -317,6 +317,95 @@ describe('detectChanges', () => {
     ]);
   });
 
+  it('should still compare deeply even if detection is shallow', () => {
+    // arrange
+    const opts: DetectOptions = { deepDetection: false };
+    const obj1 = {
+      b: {
+        c: 42,
+      },
+    };
+    const obj2 = {
+      b: {
+        c: 24,
+      },
+    };
+    const obj = {
+      a: obj1,
+    };
+
+    // act
+    const _obj = detectChanges(obj, opts);
+    _obj.a = obj2;
+
+    // assert
+    expect(_obj[ChangeDetective].changes().length).toBe(1);
+    expect(_obj[ChangeDetective].changes()).toEqual([
+      {
+        current: obj2,
+        previous: obj1,
+        property: 'a',
+      },
+    ]);
+  });
+
+  it('should only detect shallowly if options say so', () => {
+    // arrange
+    const opts: DetectOptions = { deepDetection: false };
+    const obj = {
+      a: {
+        b: 12,
+      },
+    };
+
+    // act
+    const _obj = detectChanges(obj, opts);
+    _obj.a.b = 42;
+
+    // assert
+    expect(_obj[ChangeDetective].changes().length).toBe(0);
+  });
+
+  it('should compare strictly by default', () => {
+    // arrange
+    const obj1 = { a: 42 };
+    const obj2 = { a: 42 };
+    const obj = {
+      a: obj1,
+    };
+
+    // act
+    const _obj = detectChanges(obj);
+    _obj.a = obj2;
+
+    // assert
+    expect(_obj[ChangeDetective].changes().length).toBe(1);
+    expect(_obj[ChangeDetective].changes()).toEqual([
+      {
+        current: obj2,
+        previous: obj1,
+        property: 'a',
+      },
+    ]);
+  });
+
+  it('should compare loosely if options say so', () => {
+    // arrange
+    const opts: DetectOptions = { strictComparison: false };
+    const obj1 = { a: 42 };
+    const obj2 = { a: 42 };
+    const obj = {
+      a: obj1,
+    };
+
+    // act
+    const _obj = detectChanges(obj, opts);
+    _obj.a = obj2;
+
+    // assert
+    expect(_obj[ChangeDetective].changes().length).toBe(0);
+  });
+
   it('should call custom interceptors', () => {
     // arrange
     const fakeInterceptor = jasmine.createSpy();

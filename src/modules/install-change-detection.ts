@@ -33,7 +33,7 @@ export function installChangeDetection<T extends {}>(
         return currentFarcade;
       default:
         const requested = Reflect.get(target, property, receiver);
-        return typeof requested === 'object'
+        return options.deepDetection && typeof requested === 'object'
           ? installChangeDetection(
               requested,
               options,
