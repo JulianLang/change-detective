@@ -1,9 +1,9 @@
 import {
-  addCustomDetectors,
-  addCustomInterceptors,
   detectChanges,
   resetCustomDetectors,
   resetCustomInterceptors,
+  useCustomChangeDetector,
+  useCustomInterceptor,
 } from '../src/detect-changes';
 import { ChangeDetective, DetectOptions, SubscribeCallback } from '../src/types';
 import { get, set } from '../src/util';
@@ -320,7 +320,7 @@ describe('detectChanges', () => {
   it('should call custom interceptors', () => {
     // arrange
     const fakeInterceptor = jasmine.createSpy();
-    addCustomInterceptors({ fakeInterceptor });
+    useCustomInterceptor(fakeInterceptor);
     const _value: number[] = detectChanges([]);
 
     // act
@@ -336,7 +336,7 @@ describe('detectChanges', () => {
   it('should resetCustomInterceptors', () => {
     // arrange
     const fakeInterceptor = jasmine.createSpy();
-    addCustomInterceptors({ fakeInterceptor });
+    useCustomInterceptor(fakeInterceptor);
     const _value: number[] = detectChanges([]);
 
     // act
@@ -350,7 +350,7 @@ describe('detectChanges', () => {
   it('should call custom detectors', () => {
     // arrange
     const fakeDetector = jasmine.createSpy();
-    addCustomDetectors({ fakeDetector });
+    useCustomChangeDetector(fakeDetector);
     const _value: number[] = detectChanges([]);
 
     // act
@@ -366,7 +366,7 @@ describe('detectChanges', () => {
   it('should resetCustomDetectors', () => {
     // arrange
     const fakeDetector = jasmine.createSpy();
-    addCustomDetectors({ fakeDetector });
+    useCustomChangeDetector(fakeDetector);
     const _value: number[] = detectChanges([]);
 
     // act

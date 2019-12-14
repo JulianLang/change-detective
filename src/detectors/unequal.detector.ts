@@ -1,6 +1,4 @@
-import { ChangeDetectorResult } from '../types/change-detector.result';
-
-export function unequalDetector<T>(value: T, previous: T): ChangeDetectorResult {
+export function unequalDetector<T>(value: T, previous: T): boolean {
   const isSame = Object.is(value, previous);
 
   return !isSame;
