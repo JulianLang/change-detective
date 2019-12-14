@@ -3,6 +3,7 @@ import { unequalDetector } from './detectors';
 import { installChangeDetection, notifySubscribers, subscribe } from './modules';
 import {
   AllChangesType,
+  ChangeContext,
   ChangeDetectable,
   ChangeDetectableFarcade,
   ChangeDetector,
@@ -90,8 +91,13 @@ export function detectChanges<T extends {}>(
     currentVarPath: string,
   ) {
     const propertyPath = toPropertyPath(currentVarPath, property);
+    const changeContext: ChangeContext = {
+      property: propertyPath,
+      target,
+      options,
+    };
 
-    if (changeDetector(current, previous, propertyPath, target)) {
+    if (changeDetector(current, previous, changeContext)) {
       addChange(
         {
           property: propertyPath,

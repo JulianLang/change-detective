@@ -1,4 +1,5 @@
 export * from './change-detectable';
+export * from './change.context';
 export * from './change.detector';
 export * from './change.detectors';
 export * from './change.marker';
