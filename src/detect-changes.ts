@@ -1,16 +1,13 @@
+import { AllChanges } from './constants';
 import { unequalDetector } from './detectors';
-import { initialPropertyAddedInterceptor } from './interceptors';
+import { installChangeDetection, notifySubscribers, subscribe } from './modules';
 import {
-  AllChangesSymbol,
   AllChangesType,
   ChangeDetectable,
-  ChangeDetectableContent,
-  ChangeDetective,
+  ChangeDetectableFarcade,
   ChangeDetector,
   ChangeDetectors,
-  ChangeType,
   DetectOptions,
-  Func,
   Interceptors,
   Member,
   Nullable,
@@ -18,15 +15,14 @@ import {
   PropertyChanges,
   SubscribeCallback,
 } from './types';
-import { get, runEach } from './util';
+import { add, runEach, toPropertyPath } from './util';
 
-const AllChanges = { [AllChangesSymbol]: true };
 const defaultOpts: DetectOptions = {
   detectPropertyAdding: false,
   detectPropertyRemoving: false,
 };
 const builtInInterceptors: Interceptors = {
-  initialPropertyAddedInterceptor,
+  // none needed yet
 };
 const builtInDetectors: ChangeDetectors = {
   unequalDetector,
@@ -69,86 +65,44 @@ export function resetCustomDetectors() {
 export function detectChanges<T extends {}>(
   value: T,
   opts: DetectOptions = defaultOpts,
+  baseVarPath = '',
 ): T & ChangeDetectable {
-  const options = { ...defaultOpts, ...opts };
-  const proxy: T = installChangeDetection();
   const subscribers: Map<PropertyKey | AllChangesType, SubscribeCallback<T>[]> = new Map();
+  const ChangeDetectiveFarcade: ChangeDetectableFarcade<T> = {
+    subscribe: (handler, property) => subscribe(handler, property, subscribers),
+    hasChanges,
+    resetChanges,
+    changes,
+  };
+
+  const options = { ...defaultOpts, ...opts };
+  const proxy: T = installChangeDetection(
+    value,
+    options,
+    runChangeDetection,
+    ChangeDetectiveFarcade,
+    baseVarPath,
+  );
+
   let changesMap: Map<keyof T | AllChangesType, PropertyChanges<Member<T>>> = new Map();
   let lastRegisteredChange: PropertyChange;
 
   return proxy as T & ChangeDetectable;
-
-  function installChangeDetection(): T {
-    return new Proxy(value, {
-      deleteProperty(target, property) {
-        if (options.detectPropertyRemoving) {
-          runChangeDetection(undefined, get(property, target), property, target, 'removed');
-        }
-
-        return Reflect.deleteProperty(target, property);
-      },
-      defineProperty(target, property, attr) {
-        if (options.detectPropertyAdding) {
-          runChangeDetection(attr.value, undefined, property, target, 'added');
-        }
-
-        return Reflect.defineProperty(target, property, attr);
-      },
-      get(target, property, receiver) {
-        return getProperty(target, property, receiver);
-      },
-      set(target, property, value, receiver) {
-        return setProperty(target, property, value, receiver);
-      },
-    });
-  }
-
-  function getProperty(target: any, property: PropertyKey, receiver: any): any {
-    switch (property) {
-      case ChangeDetective:
-        const contents: ChangeDetectableContent<T> = {
-          subscribe,
-          hasChanges,
-          resetChanges,
-          changes,
-        };
-
-        return contents;
-      default:
-        return Reflect.get(target, property, receiver);
-    }
-  }
-
-  function setProperty(target: any, property: PropertyKey, value: any, receiver: any) {
-    switch (property) {
-      case ChangeDetective:
-        return true;
-      default:
-        const previous = Reflect.get(target, property, receiver);
-        const success = Reflect.set(target, property, value, receiver);
-
-        if (success) {
-          runChangeDetection(value, previous, property, target, 'changed');
-        }
-
-        return success;
-    }
-  }
 
   function runChangeDetection(
     current: any,
     previous: any,
     property: PropertyKey,
     target: any,
-    type: ChangeType,
+    currentVarPath: string,
   ): void {
     const detectedChanges: PropertyKey[] = [];
 
-    if (shouldInterceptChange(current, previous, property, target, type)) {
+    if (shouldInterceptChange(current, previous, property, target)) {
       return;
     }
 
-    detectChange(current, previous, property, target, type, detectedChanges);
+    detectChange(current, previous, property, target, detectedChanges, currentVarPath);
   }
 
   function detectChange(
@@ -156,30 +110,26 @@ export function detectChanges<T extends {}>(
     previous: any,
     property: PropertyKey,
     target: any,
-    type: ChangeType,
     detectedChanges: PropertyKey[],
+    currentVarPath: string,
   ) {
-    runEach(changeDetectors, detector => {
-      const change = runDetector(detector, current, previous, property, target, type);
+    const propertyPath = toPropertyPath(currentVarPath, property);
 
-      if (change && !detectedChanges.includes(property)) {
-        detectedChanges.push(property);
-        addChange(change, property);
+    runEach(changeDetectors, detector => {
+      const change = runDetector(detector, current, previous, propertyPath, target);
+
+      if (change && !detectedChanges.includes(propertyPath)) {
+        detectedChanges.push(propertyPath);
+        addChange(change, property, propertyPath);
       }
     });
   }
 
-  function shouldInterceptChange(
-    current: any,
-    previous: any,
-    property: PropertyKey,
-    target: any,
-    type: ChangeType,
-  ) {
+  function shouldInterceptChange(current: any, previous: any, property: PropertyKey, target: any) {
     let isChangeIntercepted = false;
 
     runEach(changeInterceptors, interceptor => {
-      const result = interceptor(current, previous, property, target, type);
+      const result = interceptor(current, previous, property, target);
 
       switch (result) {
         case 'is-change':
@@ -198,16 +148,14 @@ export function detectChanges<T extends {}>(
     detect: ChangeDetector,
     current: any,
     previous: any,
-    property: PropertyKey,
+    propertyPath: string,
     target: any,
-    type: ChangeType,
   ): Nullable<PropertyChange> {
-    if (detect(current, previous, property, target, type)) {
+    if (detect(current, previous, propertyPath, target)) {
       return {
-        property,
+        property: propertyPath,
         current,
         previous,
-        type,
       };
     }
 
@@ -230,12 +178,12 @@ export function detectChanges<T extends {}>(
     return changesMap.get(property) || [];
   }
 
-  function addChange(change: PropertyChange<Member<T>>, property: PropertyKey): void {
+  function addChange(change: PropertyChange<T>, property: PropertyKey, fullVarPath: string): void {
     if (isDifferent(change, lastRegisteredChange)) {
       lastRegisteredChange = change;
-      add(change, changesMap, property);
+      add(change, changesMap, fullVarPath);
       add(change, changesMap, AllChanges);
-      notifySubscribers(property, change);
+      notifySubscribers(property, change, subscribers);
     }
   }
 
@@ -249,43 +197,5 @@ export function detectChanges<T extends {}>(
       change.previous !== other.previous ||
       change.property !== other.property
     );
-  }
-
-  function subscribe(
-    subscriber: SubscribeCallback<T>,
-    property: PropertyKey | AllChangesType = AllChanges,
-  ): Func<[], void> {
-    add(subscriber, subscribers, property);
-
-    return () => removeSubscriber(subscriber, property);
-  }
-
-  function notifySubscribers(key: PropertyKey | AllChangesType, change: PropertyChange<Member<T>>) {
-    const propertySubscribers: SubscribeCallback[] = getFromMap(subscribers, key);
-    const allSubscribers: SubscribeCallback[] = getFromMap(subscribers, AllChanges);
-
-    for (const subscriber of [...propertySubscribers, ...allSubscribers]) {
-      subscriber(change);
-    }
-  }
-
-  function getFromMap(map: Map<any, any>, key: PropertyKey | AllChangesType) {
-    return map.get(key) || [];
-  }
-
-  function add(subject: any, map: Map<any, any>, key: PropertyKey | AllChangesType) {
-    const mapContents = getFromMap(map, key);
-    mapContents.push(subject);
-    map.set(key, mapContents);
-  }
-
-  function removeSubscriber(
-    subscriber: SubscribeCallback<T>,
-    key: PropertyKey | AllChangesType,
-  ): void {
-    const currentSubscribers: SubscribeCallback[] = getFromMap(subscribers, key);
-    const filteredSubscribers = currentSubscribers.filter(s => s !== subscriber);
-
-    subscribers.set(key, filteredSubscribers);
   }
 }

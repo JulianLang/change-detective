@@ -2,7 +2,6 @@ export * from './change-detectable';
 export * from './change.detector';
 export * from './change.detectors';
 export * from './change.marker';
-export * from './change.type';
 export * from './detect.options';
 export * from './interceptor';
 export * from './interceptors';
