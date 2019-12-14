@@ -1,8 +1,8 @@
+import { AllChanges } from './constants';
 import { unequalDetector } from './detectors';
 import { initialPropertyAddedInterceptor } from './interceptors';
-import { installChangeDetection } from './modules';
+import { installChangeDetection, notifySubscribers, subscribe } from './modules';
 import {
-  AllChangesSymbol,
   AllChangesType,
   ChangeDetectable,
   ChangeDetectableFarcade,
@@ -10,7 +10,6 @@ import {
   ChangeDetectors,
   ChangeType,
   DetectOptions,
-  Func,
   Interceptors,
   Member,
   Nullable,
@@ -18,9 +17,8 @@ import {
   PropertyChanges,
   SubscribeCallback,
 } from './types';
-import { runEach } from './util';
+import { add, runEach } from './util';
 
-const AllChanges = { [AllChangesSymbol]: true };
 const defaultOpts: DetectOptions = {
   detectPropertyAdding: false,
   detectPropertyRemoving: false,
@@ -70,8 +68,9 @@ export function detectChanges<T extends {}>(
   value: T,
   opts: DetectOptions = defaultOpts,
 ): T & ChangeDetectable {
+  const subscribers: Map<PropertyKey | AllChangesType, SubscribeCallback<T>[]> = new Map();
   const ChangeDetectiveFarcade: ChangeDetectableFarcade<T> = {
-    subscribe,
+    subscribe: (handler, property) => subscribe(handler, property, subscribers),
     hasChanges,
     resetChanges,
     changes,
@@ -85,7 +84,6 @@ export function detectChanges<T extends {}>(
     ChangeDetectiveFarcade,
   );
 
-  const subscribers: Map<PropertyKey | AllChangesType, SubscribeCallback<T>[]> = new Map();
   let changesMap: Map<keyof T | AllChangesType, PropertyChanges<Member<T>>> = new Map();
   let lastRegisteredChange: PropertyChange;
 
@@ -186,12 +184,12 @@ export function detectChanges<T extends {}>(
     return changesMap.get(property) || [];
   }
 
-  function addChange(change: PropertyChange<Member<T>>, property: PropertyKey): void {
+  function addChange(change: PropertyChange<T>, property: PropertyKey): void {
     if (isDifferent(change, lastRegisteredChange)) {
       lastRegisteredChange = change;
       add(change, changesMap, property);
       add(change, changesMap, AllChanges);
-      notifySubscribers(property, change);
+      notifySubscribers(property, change, subscribers);
     }
   }
 
@@ -205,43 +203,5 @@ export function detectChanges<T extends {}>(
       change.previous !== other.previous ||
       change.property !== other.property
     );
-  }
-
-  function subscribe(
-    subscriber: SubscribeCallback<T>,
-    property: PropertyKey | AllChangesType = AllChanges,
-  ): Func<[], void> {
-    add(subscriber, subscribers, property);
-
-    return () => removeSubscriber(subscriber, property);
-  }
-
-  function notifySubscribers(key: PropertyKey | AllChangesType, change: PropertyChange<Member<T>>) {
-    const propertySubscribers: SubscribeCallback[] = getFromMap(subscribers, key);
-    const allSubscribers: SubscribeCallback[] = getFromMap(subscribers, AllChanges);
-
-    for (const subscriber of [...propertySubscribers, ...allSubscribers]) {
-      subscriber(change);
-    }
-  }
-
-  function getFromMap(map: Map<any, any>, key: PropertyKey | AllChangesType) {
-    return map.get(key) || [];
-  }
-
-  function add(subject: any, map: Map<any, any>, key: PropertyKey | AllChangesType) {
-    const mapContents = getFromMap(map, key);
-    mapContents.push(subject);
-    map.set(key, mapContents);
-  }
-
-  function removeSubscriber(
-    subscriber: SubscribeCallback<T>,
-    key: PropertyKey | AllChangesType,
-  ): void {
-    const currentSubscribers: SubscribeCallback[] = getFromMap(subscribers, key);
-    const filteredSubscribers = currentSubscribers.filter(s => s !== subscriber);
-
-    subscribers.set(key, filteredSubscribers);
   }
 }
