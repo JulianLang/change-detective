@@ -1,11 +1,11 @@
 import { unequalDetector } from './detectors';
 import { initialPropertyAddedInterceptor } from './interceptors';
+import { installChangeDetection } from './modules';
 import {
   AllChangesSymbol,
   AllChangesType,
   ChangeDetectable,
-  ChangeDetectableContent,
-  ChangeDetective,
+  ChangeDetectableFarcade,
   ChangeDetector,
   ChangeDetectors,
   ChangeType,
@@ -18,7 +18,7 @@ import {
   PropertyChanges,
   SubscribeCallback,
 } from './types';
-import { get, runEach } from './util';
+import { runEach } from './util';
 
 const AllChanges = { [AllChangesSymbol]: true };
 const defaultOpts: DetectOptions = {
@@ -70,70 +70,26 @@ export function detectChanges<T extends {}>(
   value: T,
   opts: DetectOptions = defaultOpts,
 ): T & ChangeDetectable {
+  const ChangeDetectiveFarcade: ChangeDetectableFarcade<T> = {
+    subscribe,
+    hasChanges,
+    resetChanges,
+    changes,
+  };
+
   const options = { ...defaultOpts, ...opts };
-  const proxy: T = installChangeDetection();
+  const proxy: T = installChangeDetection(
+    value,
+    options,
+    runChangeDetection,
+    ChangeDetectiveFarcade,
+  );
+
   const subscribers: Map<PropertyKey | AllChangesType, SubscribeCallback<T>[]> = new Map();
   let changesMap: Map<keyof T | AllChangesType, PropertyChanges<Member<T>>> = new Map();
   let lastRegisteredChange: PropertyChange;
 
   return proxy as T & ChangeDetectable;
-
-  function installChangeDetection(): T {
-    return new Proxy(value, {
-      deleteProperty(target, property) {
-        if (options.detectPropertyRemoving) {
-          runChangeDetection(undefined, get(property, target), property, target, 'removed');
-        }
-
-        return Reflect.deleteProperty(target, property);
-      },
-      defineProperty(target, property, attr) {
-        if (options.detectPropertyAdding) {
-          runChangeDetection(attr.value, undefined, property, target, 'added');
-        }
-
-        return Reflect.defineProperty(target, property, attr);
-      },
-      get(target, property, receiver) {
-        return getProperty(target, property, receiver);
-      },
-      set(target, property, value, receiver) {
-        return setProperty(target, property, value, receiver);
-      },
-    });
-  }
-
-  function getProperty(target: any, property: PropertyKey, receiver: any): any {
-    switch (property) {
-      case ChangeDetective:
-        const contents: ChangeDetectableContent<T> = {
-          subscribe,
-          hasChanges,
-          resetChanges,
-          changes,
-        };
-
-        return contents;
-      default:
-        return Reflect.get(target, property, receiver);
-    }
-  }
-
-  function setProperty(target: any, property: PropertyKey, value: any, receiver: any) {
-    switch (property) {
-      case ChangeDetective:
-        return true;
-      default:
-        const previous = Reflect.get(target, property, receiver);
-        const success = Reflect.set(target, property, value, receiver);
-
-        if (success) {
-          runChangeDetection(value, previous, property, target, 'changed');
-        }
-
-        return success;
-    }
-  }
 
   function runChangeDetection(
     current: any,

@@ -7,10 +7,10 @@ export const ChangeDetective = Symbol('change-detective');
 
 /** An object which state is observed and that changes are tracked. */
 export interface ChangeDetectable<T = any> {
-  [ChangeDetective]: ChangeDetectableContent<T>;
+  [ChangeDetective]: ChangeDetectableFarcade<T>;
 }
 
-export interface ChangeDetectableContent<T> {
+export interface ChangeDetectableFarcade<T> {
   /**
    * Subscribes to all future changes with a handler callback function.
    * @param handler Function to be called whenever a value changed
