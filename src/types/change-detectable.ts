@@ -1,6 +1,5 @@
+import { AllChangesType } from './internal/all-changes';
 import { Func } from './internal/func';
-import { Member } from './internal/member';
-import { Nullable } from './internal/nullable';
 import { PropertyChanges } from './internal/property.changes';
 import { SubscribeCallback } from './subscribe-callback';
 
@@ -17,7 +16,8 @@ export interface ChangeDetectableContent<T> {
    * @param handler Function to be called whenever a value changed
    * @returns Function to unsubscribe from changes.
    */
-  subscribe(handler: SubscribeCallback<T>, property?: Nullable<keyof T>): Func<[], void>;
-  changes: Map<keyof T, PropertyChanges<Member<T>>>;
+  subscribe(handler: SubscribeCallback<T>, property?: keyof T | AllChangesType): Func<[], void>;
   hasChanges(): boolean;
+  resetChanges(): void;
+  changes(property?: keyof T): PropertyChanges | PropertyChanges[];
 }

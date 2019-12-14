@@ -1,6 +1,8 @@
 import { unequalDetector } from './detectors';
 import { initialPropertyAddedInterceptor } from './interceptors';
 import {
+  AllChangesSymbol,
+  AllChangesType,
   ChangeDetectable,
   ChangeDetectableContent,
   ChangeDetective,
@@ -18,6 +20,7 @@ import {
 } from './types';
 import { get, runEach } from './util';
 
+const AllChanges = { [AllChangesSymbol]: true };
 const defaultOpts: DetectOptions = {
   detectPropertyAdding: false,
   detectPropertyRemoving: false,
@@ -69,8 +72,8 @@ export function detectChanges<T extends {}>(
 ): T & ChangeDetectable {
   const options = { ...defaultOpts, ...opts };
   const proxy: T = installChangeDetection();
-  const changes: Map<keyof T, PropertyChanges<Member<T>>> = new Map();
-  const subscribers: Map<Nullable<PropertyKey>, SubscribeCallback<T>[]> = new Map();
+  const subscribers: Map<PropertyKey | AllChangesType, SubscribeCallback<T>[]> = new Map();
+  let changes: Map<keyof T | AllChangesType, PropertyChanges<Member<T>>> = new Map();
   let lastRegisteredChange: PropertyChange;
 
   return proxy as T & ChangeDetectable;
@@ -105,8 +108,9 @@ export function detectChanges<T extends {}>(
       case ChangeDetective:
         const contents: ChangeDetectableContent<T> = {
           subscribe,
-          changes,
           hasChanges,
+          resetChanges,
+          changes: getChanges,
         };
 
         return contents;
@@ -214,6 +218,7 @@ export function detectChanges<T extends {}>(
     if (isDifferent(change, lastRegisteredChange)) {
       lastRegisteredChange = change;
       add(change, changes, property);
+      add(change, changes, AllChanges);
       notifySubscribers(property, change);
     }
   }
@@ -230,41 +235,56 @@ export function detectChanges<T extends {}>(
     );
   }
 
+  function getChanges(property?: keyof T): PropertyChanges | PropertyChanges[] {
+    if (property === undefined) {
+      return changes.get(AllChanges) || [];
+    }
+
+    return changes.get(property) || [];
+  }
+
+  function resetChanges() {
+    changes = new Map();
+  }
+
   function hasChanges(): boolean {
     return changes.size > 0;
   }
 
   function subscribe(
     subscriber: SubscribeCallback<T>,
-    property: Nullable<PropertyKey> = null,
+    property: PropertyKey | AllChangesType = AllChanges,
   ): Func<[], void> {
     add(subscriber, subscribers, property);
 
     return () => removeSubscriber(subscriber, property);
   }
 
-  function notifySubscribers(property: Nullable<PropertyKey>, change: PropertyChange<Member<T>>) {
+  function notifySubscribers(
+    property: PropertyKey | AllChangesType,
+    change: PropertyChange<Member<T>>,
+  ) {
     const propertySubscribers: SubscribeCallback[] = getContents(subscribers, property);
-    const allSubscribers: SubscribeCallback[] = getContents(subscribers, null);
+    const allSubscribers: SubscribeCallback[] = getContents(subscribers, AllChanges);
 
     for (const subscriber of [...propertySubscribers, ...allSubscribers]) {
       subscriber(change);
     }
   }
 
-  function getContents(map: Map<any, any>, property: Nullable<PropertyKey>) {
-    return map.get(property) || [];
+  function getContents(map: Map<any, any>, property: PropertyKey | AllChangesType) {
+    return map.get(property ? property : AllChanges) || [];
   }
 
-  function add(subject: any, to: Map<any, any>, forProperty: Nullable<PropertyKey>) {
-    const mapContents = getContents(to, forProperty);
+  function add(subject: any, to: Map<any, any>, property: PropertyKey | AllChangesType) {
+    const mapContents = getContents(to, property);
     mapContents.push(subject);
-    to.set(forProperty, mapContents);
+    to.set(property, mapContents);
   }
 
   function removeSubscriber(
     subscriber: SubscribeCallback<T>,
-    property: Nullable<PropertyKey>,
+    property: PropertyKey | AllChangesType,
   ): void {
     const currentSubscribers: SubscribeCallback[] = getContents(subscribers, property);
     const filteredSubscribers = currentSubscribers.filter(s => s !== subscriber);

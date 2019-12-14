@@ -6,6 +6,7 @@ export * from './change.type';
 export * from './detect.options';
 export * from './interceptor';
 export * from './interceptors';
+export * from './internal/all-changes';
 export * from './internal/func';
 export * from './internal/member';
 export * from './internal/nullable';

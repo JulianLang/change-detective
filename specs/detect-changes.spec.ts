@@ -118,7 +118,7 @@ describe('detectChanges', () => {
 
     // assert
     expect(_value[ChangeDetective].hasChanges()).toBe(false);
-    expect(_value[ChangeDetective].changes.size).toBe(0);
+    expect(_value[ChangeDetective].changes().length).toBe(0);
   });
 
   it('should not mark as changed, if the value was reset, but did not change', () => {
@@ -144,8 +144,8 @@ describe('detectChanges', () => {
 
     // assert
     expect(_value[ChangeDetective].hasChanges()).toBe(true);
-    expect(_value[ChangeDetective].changes.size).toBe(2);
-    expect(_value[ChangeDetective].changes.get('a')).toEqual([
+    expect(_value[ChangeDetective].changes().length).toBe(2);
+    expect(_value[ChangeDetective].changes('a')).toEqual([
       {
         property: 'a',
         current: 24,
@@ -153,7 +153,7 @@ describe('detectChanges', () => {
         type: 'changed',
       },
     ]);
-    expect(_value[ChangeDetective].changes.get('b')).toEqual([
+    expect(_value[ChangeDetective].changes('b')).toEqual([
       {
         property: 'b',
         current: false,
@@ -173,7 +173,7 @@ describe('detectChanges', () => {
     _value.a = 42;
 
     // assert
-    expect(_value[ChangeDetective].changes.get('a')).toEqual([
+    expect(_value[ChangeDetective].changes('a')).toEqual([
       {
         property: 'a',
         previous: 12,
@@ -199,8 +199,8 @@ describe('detectChanges', () => {
     (_obj as any).b = true;
 
     // assert
-    expect(_obj[ChangeDetective].changes.size).toBe(1);
-    expect(_obj[ChangeDetective].changes.get('b')).toEqual([
+    expect(_obj[ChangeDetective].changes().length).toBe(1);
+    expect(_obj[ChangeDetective].changes('b')).toEqual([
       {
         current: true,
         previous: undefined,
@@ -220,8 +220,8 @@ describe('detectChanges', () => {
     _obj.a = 21;
 
     // assert
-    expect(_obj[ChangeDetective].changes.size).toBe(1);
-    expect(_obj[ChangeDetective].changes.get('a')).toEqual([
+    expect(_obj[ChangeDetective].changes().length).toBe(1);
+    expect(_obj[ChangeDetective].changes('a')).toEqual([
       {
         current: 21,
         previous: 12,
@@ -241,8 +241,8 @@ describe('detectChanges', () => {
     delete _obj.a;
 
     // assert
-    expect(_obj[ChangeDetective].changes.size).toBe(1);
-    expect(_obj[ChangeDetective].changes.get('a')).toEqual([
+    expect(_obj[ChangeDetective].changes().length).toBe(1);
+    expect(_obj[ChangeDetective].changes('a')).toEqual([
       {
         current: undefined,
         previous: 12,
@@ -310,5 +310,20 @@ describe('detectChanges', () => {
 
     // assert
     expect(fakeDetector).not.toHaveBeenCalled();
+  });
+
+  it('resetChanges should empty changes map', () => {
+    // arrange
+    const _value = detectChanges([] as number[]);
+    _value.push(1);
+
+    // pre-condition
+    expect(_value[ChangeDetective].hasChanges()).toBe(true);
+
+    // act
+    _value[ChangeDetective].resetChanges();
+
+    // assert
+    expect(_value[ChangeDetective].hasChanges()).toBe(false);
   });
 });
