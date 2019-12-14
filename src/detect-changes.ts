@@ -73,7 +73,7 @@ export function detectChanges<T extends {}>(
   const options = { ...defaultOpts, ...opts };
   const proxy: T = installChangeDetection();
   const subscribers: Map<PropertyKey | AllChangesType, SubscribeCallback<T>[]> = new Map();
-  let changes: Map<keyof T | AllChangesType, PropertyChanges<Member<T>>> = new Map();
+  let changesMap: Map<keyof T | AllChangesType, PropertyChanges<Member<T>>> = new Map();
   let lastRegisteredChange: PropertyChange;
 
   return proxy as T & ChangeDetectable;
@@ -110,7 +110,7 @@ export function detectChanges<T extends {}>(
           subscribe,
           hasChanges,
           resetChanges,
-          changes: getChanges,
+          changes,
         };
 
         return contents;
@@ -214,11 +214,27 @@ export function detectChanges<T extends {}>(
     return null;
   }
 
+  function resetChanges() {
+    changesMap = new Map();
+  }
+
+  function hasChanges(): boolean {
+    return changesMap.size > 0;
+  }
+
+  function changes(property?: keyof T): PropertyChanges | PropertyChanges[] {
+    if (property === undefined) {
+      return changesMap.get(AllChanges) || [];
+    }
+
+    return changesMap.get(property) || [];
+  }
+
   function addChange(change: PropertyChange<Member<T>>, property: PropertyKey): void {
     if (isDifferent(change, lastRegisteredChange)) {
       lastRegisteredChange = change;
-      add(change, changes, property);
-      add(change, changes, AllChanges);
+      add(change, changesMap, property);
+      add(change, changesMap, AllChanges);
       notifySubscribers(property, change);
     }
   }
@@ -235,22 +251,6 @@ export function detectChanges<T extends {}>(
     );
   }
 
-  function getChanges(property?: keyof T): PropertyChanges | PropertyChanges[] {
-    if (property === undefined) {
-      return changes.get(AllChanges) || [];
-    }
-
-    return changes.get(property) || [];
-  }
-
-  function resetChanges() {
-    changes = new Map();
-  }
-
-  function hasChanges(): boolean {
-    return changes.size > 0;
-  }
-
   function subscribe(
     subscriber: SubscribeCallback<T>,
     property: PropertyKey | AllChangesType = AllChanges,
@@ -260,35 +260,32 @@ export function detectChanges<T extends {}>(
     return () => removeSubscriber(subscriber, property);
   }
 
-  function notifySubscribers(
-    property: PropertyKey | AllChangesType,
-    change: PropertyChange<Member<T>>,
-  ) {
-    const propertySubscribers: SubscribeCallback[] = getContents(subscribers, property);
-    const allSubscribers: SubscribeCallback[] = getContents(subscribers, AllChanges);
+  function notifySubscribers(key: PropertyKey | AllChangesType, change: PropertyChange<Member<T>>) {
+    const propertySubscribers: SubscribeCallback[] = getFromMap(subscribers, key);
+    const allSubscribers: SubscribeCallback[] = getFromMap(subscribers, AllChanges);
 
     for (const subscriber of [...propertySubscribers, ...allSubscribers]) {
       subscriber(change);
     }
   }
 
-  function getContents(map: Map<any, any>, property: PropertyKey | AllChangesType) {
-    return map.get(property ? property : AllChanges) || [];
+  function getFromMap(map: Map<any, any>, key: PropertyKey | AllChangesType) {
+    return map.get(key) || [];
   }
 
-  function add(subject: any, to: Map<any, any>, property: PropertyKey | AllChangesType) {
-    const mapContents = getContents(to, property);
+  function add(subject: any, map: Map<any, any>, key: PropertyKey | AllChangesType) {
+    const mapContents = getFromMap(map, key);
     mapContents.push(subject);
-    to.set(property, mapContents);
+    map.set(key, mapContents);
   }
 
   function removeSubscriber(
     subscriber: SubscribeCallback<T>,
-    property: PropertyKey | AllChangesType,
+    key: PropertyKey | AllChangesType,
   ): void {
-    const currentSubscribers: SubscribeCallback[] = getContents(subscribers, property);
+    const currentSubscribers: SubscribeCallback[] = getFromMap(subscribers, key);
     const filteredSubscribers = currentSubscribers.filter(s => s !== subscriber);
 
-    subscribers.set(property, filteredSubscribers);
+    subscribers.set(key, filteredSubscribers);
   }
 }
